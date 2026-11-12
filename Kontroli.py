@@ -93,7 +93,6 @@ class ControlApp(ctk.CTk):
     self.init_default_file()
 
   def init_default_file(self):
-    """Створює або підключає файл автоматично у папці Документи."""
     if not os.path.exists(DOCUMENTS_PATH):
       os.makedirs(DOCUMENTS_PATH, exist_ok=True)
 
@@ -131,7 +130,6 @@ class ControlApp(ctk.CTk):
       self._ensure_excel_structure()
 
   def open_excel_file(self):
-    """Відкриває робочий Excel файл у системній програмі на Windows."""
     try:
       if not os.path.exists(self.excel_path):
         self.init_default_file()
@@ -310,7 +308,7 @@ class CheckControlsDialog(ctk.CTkToplevel):
     )
     self.btn_save_done.pack(pady=15)
 
- def load_controls(self):
+  def load_controls(self):
     for widget in self.scroll_frame.winfo_children():
       widget.destroy()
     self.checkboxes = []
@@ -366,13 +364,12 @@ class CheckControlsDialog(ctk.CTkToplevel):
           found_any = True
           days_left = (term_date - today).days
 
-          # Використовуємо надійні текстові мітки та кольори для Windows
           if days_left > 7:
             status_tag = "[ПЛАН]"
             text_color = "gray"
           elif days_left >= 5:
             status_tag = "[ЧЕРЕЗ 5-7 ДНІВ]"
-            text_color = "#D97706"  # Жовто-оранжевий
+            text_color = "#D97706"
           elif days_left >= 2:
             status_tag = "[УВАГА]"
             text_color = "orange"
@@ -384,7 +381,7 @@ class CheckControlsDialog(ctk.CTkToplevel):
             text_color = "red"
           else:
             status_tag = "[ПРОТЕРМІНОВАНО!]"
-            text_color = "#991B1B"  # Темно-червоний
+            text_color = "#991B1B"
 
           control_name = row.get("Назва контролю", "Без назви")
           organ = row.get("Орган куди направив контроль", "-")
