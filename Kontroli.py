@@ -276,37 +276,37 @@ class ControlApp(ctk.CTk):
             max_len = max(max_len, len(str(cell.value)))
         ws.column_dimensions[col_letter].width = max(max_len + 5, 15)
 
-      # --- УМОВНЕ ФОРМАТУВАННЯ ДЛЯ КОЛОНОК A–E (Без F) ---
+      # --- УМОВНЕ ФОРМАТУВАННЯ ДЛЯ КОЛОНОК A–E ---
       ws.conditional_formatting.formulaRule = []
 
       max_r = max(ws.max_row, 2)
       target_range = f"A2:E{max_r}"
 
-      # Кольори відповідно до вашого вибору
-      overdue_fill = PatternFill(start_color="750377", end_color="750377", fill_type="solid") # Протерміновано
-      red_fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")       # Сьогодні / Завтра
-      orange_fill = PatternFill(start_color="D4652A", end_color="D4652A", fill_type="solid")    # Увага (2-4 дні)
-      yellow_fill = PatternFill(start_color="E3F06F", end_color="E3F06F", fill_type="solid")    # Через 5-7 днів
+      # Пріоритет 1: Якщо у стовпчику F є позначка виконання — салатовий фон (#D4EDDA)
+      done_fill = PatternFill(start_color="D4EDDA", end_color="D4EDDA", fill_type="solid")
+      ws.conditional_formatting.add(
+          target_range,
+          FormulaRule(formula=['$F2<>""'], stopIfTrue=True, fill=done_fill)
+      )
 
-      # 1. Протерміновано (< сьогодні) -> Заливка #750377
+      # Решта кольорів за термінами виконання
+      overdue_fill = PatternFill(start_color="750377", end_color="750377", fill_type="solid")
+      red_fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")
+      orange_fill = PatternFill(start_color="D4652A", end_color="D4652A", fill_type="solid")
+      yellow_fill = PatternFill(start_color="E3F06F", end_color="E3F06F", fill_type="solid")
+
       ws.conditional_formatting.add(
           target_range,
           FormulaRule(formula=['AND($D2<>"", $D2<TODAY())'], stopIfTrue=True, fill=overdue_fill)
       )
-
-      # 2. Червоний (Сьогодні / Завтра: від сьогодні до сьогодні + 1)
       ws.conditional_formatting.add(
           target_range,
           FormulaRule(formula=['AND($D2<>"", $D2>=TODAY(), $D2<=TODAY()+1)'], stopIfTrue=True, fill=red_fill)
       )
-
-      # 3. Помаранчевий (Увага: 2-4 дні)
       ws.conditional_formatting.add(
           target_range,
           FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+2, $D2<=TODAY()+4)'], stopIfTrue=True, fill=orange_fill)
       )
-
-      # 4. Жовтий (5-7 днів)
       ws.conditional_formatting.add(
           target_range,
           FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+5, $D2<=TODAY()+7)'], stopIfTrue=True, fill=yellow_fill)
