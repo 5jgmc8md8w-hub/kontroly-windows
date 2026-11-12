@@ -7,7 +7,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import openpyxl
-from openpyxl.styles import Alignment, Border, Font, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.formatting.rule import FormulaRule
 from openpyxl.utils import get_column_letter
 import pandas as pd
 
@@ -220,18 +221,26 @@ class ControlApp(ctk.CTk):
 
       df = pd.DataFrame(data, columns=columns[: len(data[0])])
 
+      # Конвертуємо дати в об'єкти datetime для сортування
       df["TempDate"] = pd.to_datetime(
           df["Термін виконання"], format="%d.%m.%Y", errors="coerce"
       )
-      df = df.sort_values(by="TempDate", ascending=True).drop(
-          columns=["TempDate"]
-      )
+      df = df.sort_values(by="TempDate", ascending=True)
 
       ws.delete_rows(2, ws.max_row + 1)
 
-      for r_idx, row_data in enumerate(df.values, start=2):
-        for c_idx, val in enumerate(row_data, start=1):
-          ws.cell(row=r_idx, column=c_idx, value=val)
+      # Записуємо дані назад у таблицю як реальні дати Excel
+      for r_idx, (_, row) in enumerate(df.iterrows(), start=2):
+        row_values = row.drop(labels=["TempDate"]).values
+        date_obj = row["TempDate"]
+        
+        for c_idx, val in enumerate(row_values, start=1):
+          cell = ws.cell(row=r_idx, column=c_idx)
+          if c_idx == 4 and not pd.isna(date_obj):
+            cell.value = date_obj.date()
+            cell.number_format = 'DD.MM.YYYY'
+          else:
+            cell.value = val
 
       thin_border = Border(
           left=Side(style="thin", color="CCCCCC"),
@@ -266,6 +275,42 @@ class ControlApp(ctk.CTk):
           if cell.value:
             max_len = max(max_len, len(str(cell.value)))
         ws.column_dimensions[col_letter].width = max(max_len + 5, 15)
+
+      # --- УМОВНЕ ФОРМАТУВАННЯ ДЛЯ КОЛОНОК A–E (Без F) ---
+      ws.conditional_formatting.formulaRule = []
+
+      max_r = max(ws.max_row, 2)
+      target_range = f"A2:E{max_r}"
+
+      # Кольори відповідно до вашого вибору
+      overdue_fill = PatternFill(start_color="750377", end_color="750377", fill_type="solid") # Протерміновано
+      red_fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")       # Сьогодні / Завтра
+      orange_fill = PatternFill(start_color="D4652A", end_color="D4652A", fill_type="solid")    # Увага (2-4 дні)
+      yellow_fill = PatternFill(start_color="E3F06F", end_color="E3F06F", fill_type="solid")    # Через 5-7 днів
+
+      # 1. Протерміновано (< сьогодні) -> Заливка #750377
+      ws.conditional_formatting.add(
+          target_range,
+          FormulaRule(formula=['AND($D2<>"", $D2<TODAY())'], stopIfTrue=True, fill=overdue_fill)
+      )
+
+      # 2. Червоний (Сьогодні / Завтра: від сьогодні до сьогодні + 1)
+      ws.conditional_formatting.add(
+          target_range,
+          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY(), $D2<=TODAY()+1)'], stopIfTrue=True, fill=red_fill)
+      )
+
+      # 3. Помаранчевий (Увага: 2-4 дні)
+      ws.conditional_formatting.add(
+          target_range,
+          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+2, $D2<=TODAY()+4)'], stopIfTrue=True, fill=orange_fill)
+      )
+
+      # 4. Жовтий (5-7 днів)
+      ws.conditional_formatting.add(
+          target_range,
+          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+5, $D2<=TODAY()+7)'], stopIfTrue=True, fill=yellow_fill)
+      )
 
       wb.save(self.excel_path)
     except Exception as e:
@@ -369,10 +414,10 @@ class CheckControlsDialog(ctk.CTkToplevel):
             text_color = "#718096"
           elif days_left >= 5:
             status_tag = "[ЧЕРЕЗ 5-7 ДНІВ]"
-            text_color = "#F1F439"
+            text_color = "#E3F06F"
           elif days_left >= 2:
             status_tag = "[УВАГА]"
-            text_color = "#F69833"
+            text_color = "#D4652A"
           elif days_left == 1:
             status_tag = "[ЗАВТРА!]"
             text_color = "#DC2626"
@@ -381,7 +426,7 @@ class CheckControlsDialog(ctk.CTkToplevel):
             text_color = "#DC2626"
           else:
             status_tag = "[ПРОТЕРМІНОВАНО!]"
-            text_color = "#000000"
+            text_color = "#750377"
 
           control_name = row.get("Назва контролю", "Без назви")
           organ = row.get("Орган куди направив контроль", "-")
