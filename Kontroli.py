@@ -366,22 +366,22 @@ class CheckControlsDialog(ctk.CTkToplevel):
 
           if days_left > 7:
             status_tag = "[ПЛАН]"
-            text_color = "gray"
+            text_color = "#718096"
           elif days_left >= 5:
             status_tag = "[ЧЕРЕЗ 5-7 ДНІВ]"
-            text_color = "#D97706"
+            text_color = "#F1F439"
           elif days_left >= 2:
             status_tag = "[УВАГА]"
-            text_color = "orange"
+            text_color = "#F69833"
           elif days_left == 1:
             status_tag = "[ЗАВТРА!]"
-            text_color = "red"
+            text_color = "#DC2626"
           elif days_left == 0:
             status_tag = "[СЬОГОДНІ!]"
-            text_color = "red"
+            text_color = "#DC2626"
           else:
             status_tag = "[ПРОТЕРМІНОВАНО!]"
-            text_color = "#991B1B"
+            text_color = "#000000"
 
           control_name = row.get("Назва контролю", "Без назви")
           organ = row.get("Орган куди направив контроль", "-")
@@ -399,8 +399,8 @@ class CheckControlsDialog(ctk.CTkToplevel):
               self.scroll_frame,
               text=text_label,
               variable=var,
-              font=("Arial", 12, "bold" if days_left <= 1 else "normal"),
-              text_color=text_color if days_left <= 1 else None
+              font=("Arial", 12, "bold"),
+              text_color=text_color
           )
           chk.pack(anchor="w", padx=10, pady=8)
           self.checkboxes.append({"index": index, "var": var})
