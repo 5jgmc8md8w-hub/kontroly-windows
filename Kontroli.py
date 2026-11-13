@@ -249,15 +249,17 @@ class ControlApp(ctk.CTk):
           bottom=Side(style="thin", color="CCCCCC"),
       )
 
+      max_r = max(ws.max_row, 2)
       for row in ws.iter_rows(
-          min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column
+          min_row=1, max_row=max_r, min_col=1, max_col=ws.max_column
       ):
         for cell in row:
           cell.border = thin_border
+          cell.alignment = Alignment(vertical="center", wrap_text=True)
           if cell.row == 1:
             cell.font = Font(bold=True)
             cell.alignment = Alignment(
-                horizontal="center", vertical="center"
+                horizontal="center", vertical="center", wrap_text=True
             )
           else:
             if cell.column == ws.max_column:
@@ -265,51 +267,66 @@ class ControlApp(ctk.CTk):
                   horizontal="center", vertical="center"
               )
               cell.font = Font(name="Segoe UI Symbol", size=12, bold=True)
-            else:
-              cell.alignment = Alignment(vertical="center")
 
-      for col in ws.columns:
-        max_len = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
-          if cell.value:
-            max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = max(max_len + 5, 15)
+      column_widths = {
+          "A": 35,  # Назва контролю
+          "B": 30,  # Орган
+          "C": 18,  # Класифікація
+          "D": 18,  # Термін виконання
+          "E": 25,  # Виконавець
+          "F": 15,  # Виконано
+      }
+      for col_letter, width in column_widths.items():
+        ws.column_dimensions[col_letter].width = width
 
       # --- УМОВНЕ ФОРМАТУВАННЯ ДЛЯ КОЛОНОК A–E ---
       ws.conditional_formatting.formulaRule = []
 
-      max_r = max(ws.max_row, 2)
       target_range = f"A2:E{max_r}"
 
-      # Пріоритет 1: Якщо у стовпчику F є позначка виконання — салатовий фон (#D4EDDA)
+      # 0. Виконано -> Салатовий фон (#D4EDDA)
       done_fill = PatternFill(start_color="D4EDDA", end_color="D4EDDA", fill_type="solid")
       ws.conditional_formatting.add(
           target_range,
           FormulaRule(formula=['$F2<>""'], stopIfTrue=True, fill=done_fill)
       )
 
-      # Решта кольорів за термінами виконання
-      overdue_fill = PatternFill(start_color="750377", end_color="750377", fill_type="solid")
-      red_fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")
-      orange_fill = PatternFill(start_color="D4652A", end_color="D4652A", fill_type="solid")
-      yellow_fill = PatternFill(start_color="E3F06F", end_color="E3F06F", fill_type="solid")
+      # 1. Протермінований (< сьогодні) -> Теракотово-червоний (#B94A3D) + білий текст
+      overdue_fill = PatternFill(start_color="B94A3D", end_color="B94A3D", fill_type="solid")
+      white_font = Font(color="FFFFFF", bold=True)
+      ws.conditional_formatting.add(
+          target_range,
+          FormulaRule(formula=['AND($D2<>"", $D2<TODAY())'], stopIfTrue=True, fill=overdue_fill, font=white_font)
+      )
 
+      # 2. 2-1 дні -> Світло-рожевий (#F2D0D4) + темно-червоний текст (#7A1C1C)
+      pink_fill = PatternFill(start_color="F2D0D4", end_color="F2D0D4", fill_type="solid")
+      dark_red_font = Font(color="7A1C1C", bold=True)
       ws.conditional_formatting.add(
           target_range,
-          FormulaRule(formula=['AND($D2<>"", $D2<TODAY())'], stopIfTrue=True, fill=overdue_fill)
+          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY(), $D2<=TODAY()+1)'], stopIfTrue=True, fill=pink_fill, font=dark_red_font)
       )
+
+      # 3. 4-3 дні -> Помаранчевий (#E88E35) + білий текст
+      orange_fill = PatternFill(start_color="E88E35", end_color="E88E35", fill_type="solid")
       ws.conditional_formatting.add(
           target_range,
-          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY(), $D2<=TODAY()+1)'], stopIfTrue=True, fill=red_fill)
+          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+2, $D2<=TODAY()+4)'], stopIfTrue=True, fill=orange_fill, font=white_font)
       )
+
+      # 4. 5-7 днів -> Жовтий / Сонячний (#F9E784) + темно-коричневий текст (#5A4A00)
+      yellow_fill = PatternFill(start_color="F9E784", end_color="F9E784", fill_type="solid")
+      dark_yellow_font = Font(color="5A4A00", bold=True)
       ws.conditional_formatting.add(
           target_range,
-          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+2, $D2<=TODAY()+4)'], stopIfTrue=True, fill=orange_fill)
+          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+5, $D2<=TODAY()+7)'], stopIfTrue=True, fill=yellow_fill, font=dark_yellow_font)
       )
+
+      # 5. Більше ніж 7 днів -> Блакитний фон (#4682B4) + білий текст
+      blue_fill = PatternFill(start_color="4682B4", end_color="4682B4", fill_type="solid")
       ws.conditional_formatting.add(
           target_range,
-          FormulaRule(formula=['AND($D2<>"", $D2>=TODAY()+5, $D2<=TODAY()+7)'], stopIfTrue=True, fill=yellow_fill)
+          FormulaRule(formula=['AND($D2<>"", $D2>TODAY()+7)'], stopIfTrue=True, fill=blue_fill, font=white_font)
       )
 
       wb.save(self.excel_path)
@@ -325,7 +342,7 @@ class CheckControlsDialog(ctk.CTkToplevel):
     self.on_save_callback = on_save_callback
 
     self.title("Перевірка контролів поточного місяця")
-    self.geometry("820x580")
+    self.geometry("860x600")
     self.grab_set()
 
     self.lbl_info = ctk.CTkLabel(
@@ -338,8 +355,10 @@ class CheckControlsDialog(ctk.CTkToplevel):
     )
     self.lbl_info.pack(anchor="w", padx=20, pady=(15, 10))
 
-    self.scroll_frame = ctk.CTkScrollableFrame(self, width=770, height=400)
+    self.scroll_frame = ctk.CTkScrollableFrame(self, width=810, height=420)
     self.scroll_frame.pack(padx=20, pady=10, fill="both", expand=True)
+
+    self._bind_smooth_scroll(self.scroll_frame)
 
     self.checkboxes = []
     self.load_controls()
@@ -352,6 +371,34 @@ class CheckControlsDialog(ctk.CTkToplevel):
         font=("Arial", 13, "bold"),
     )
     self.btn_save_done.pack(pady=15)
+
+  def _bind_smooth_scroll(self, widget):
+    """Справжній плавний покроковий скрол за координатами канви (як у браузері)"""
+    canvas = widget._parent_canvas
+
+    def _on_mouse_wheel(event):
+      # Отримуємо поточне положення повзунка від 0.0 до 1.0
+      current_pos = canvas.yview()[0]
+      
+      # Розраховуємо крок залежно від операційної системи та типу події (трекпад vs миша)
+      if sys.platform == "darwin":
+        # macOS передає мікро-дельти через трекпад або мишу
+        delta = -event.delta * 0.003
+      else:
+        # Windows / Linux стандартне коліщатко
+        delta = (-event.delta / 120) * 0.05
+
+      # Обмежуємо нове положення в межах від 0.0 до 1.0
+      new_pos = max(0.0, min(1.0, current_pos + delta))
+      
+      # Зрушуємо полотно за абсолютними координатами
+      canvas.yview_moveto(new_pos)
+      return "break"
+
+    # Прив'язуємо до канви та всіх пікселів зони прокрутки
+    canvas.bind("<MouseWheel>", _on_mouse_wheel, add="+")
+    canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"), add="+")
+    canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"), add="+")
 
   def load_controls(self):
     for widget in self.scroll_frame.winfo_children():
@@ -411,22 +458,28 @@ class CheckControlsDialog(ctk.CTkToplevel):
 
           if days_left > 7:
             status_tag = "[ПЛАН]"
-            text_color = "#718096"
+            bg_color = "#4682B4"
+            text_color = "#FFFFFF"
           elif days_left >= 5:
             status_tag = "[ЧЕРЕЗ 5-7 ДНІВ]"
-            text_color = "#E3F06F"
+            bg_color = "#F9E784"
+            text_color = "#5A4A00"
           elif days_left >= 2:
             status_tag = "[УВАГА]"
-            text_color = "#D4652A"
-          elif days_left == 1:
+            bg_color = "#E88E35"
+            text_color = "#FFFFFF"
+          elif days_left >= 1:
             status_tag = "[ЗАВТРА!]"
-            text_color = "#DC2626"
+            bg_color = "#F2D0D4"
+            text_color = "#7A1C1C"
           elif days_left == 0:
             status_tag = "[СЬОГОДНІ!]"
-            text_color = "#DC2626"
+            bg_color = "#F2D0D4"
+            text_color = "#7A1C1C"
           else:
             status_tag = "[ПРОТЕРМІНОВАНО!]"
-            text_color = "#750377"
+            bg_color = "#B94A3D"
+            text_color = "#FFFFFF"
 
           control_name = row.get("Назва контролю", "Без назви")
           organ = row.get("Орган куди направив контроль", "-")
@@ -434,20 +487,47 @@ class CheckControlsDialog(ctk.CTkToplevel):
           executor = row.get("Виконавець", "-")
           date_str = term_date.strftime("%d.%m.%Y")
 
-          text_label = (
-              f"{status_tag} Термін: {date_str} (дн: {days_left}) | {control_name}"
-              f" | Орган: {organ} | Тип: {classif} | Виконавець: {executor}"
-          )
+          card_frame = ctk.CTkFrame(self.scroll_frame, fg_color=bg_color, corner_radius=6)
+          card_frame.pack(anchor="w", fill="x", padx=10, pady=6)
 
           var = tk.BooleanVar(value=False)
-          chk = ctk.CTkCheckBox(
-              self.scroll_frame,
-              text=text_label,
+          
+          chk = tk.Checkbutton(
+              card_frame,
+              text=f"{status_tag} Термін: {date_str} (дн: {days_left}) | Назва: {control_name} | Орган: {organ} | Тип: {classif} | Виконавець: {executor}",
               variable=var,
-              font=("Arial", 12, "bold"),
-              text_color=text_color
+              font=("Arial", 11, "bold"),
+              anchor="w",
+              justify="left",
+              wraplength=730,
+              bg=bg_color,
+              fg=text_color,
+              activebackground=bg_color,
+              activeforeground=text_color,
+              selectcolor="#333333"
           )
-          chk.pack(anchor="w", padx=10, pady=8)
+          chk.pack(anchor="w", fill="x", padx=10, pady=8, expand=True)
+
+          # Застосовуємо абсолютно плавний веб-скрол також для кожної картки та чекбокса всередині
+          canvas = self.scroll_frame._parent_canvas
+          def _scroll_event(event):
+            current_pos = canvas.yview()[0]
+            if sys.platform == "darwin":
+              delta = -event.delta * 0.003
+            else:
+              delta = (-event.delta / 120) * 0.05
+            new_pos = max(0.0, min(1.0, current_pos + delta))
+            canvas.yview_moveto(new_pos)
+            return "break"
+
+          card_frame.bind("<MouseWheel>", _scroll_event)
+          card_frame.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+          card_frame.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+          
+          chk.bind("<MouseWheel>", _scroll_event)
+          chk.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+          chk.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
           self.checkboxes.append({"index": index, "var": var})
 
       if not found_any:
