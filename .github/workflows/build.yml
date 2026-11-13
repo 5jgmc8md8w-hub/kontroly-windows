@@ -28,7 +28,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller --noconsole --onefile --collect-all customtkinter --icon="./icon.ico" --name="Kontroli" Kontroli.py
+          pyinstaller --noconsole --onefile --collect-all customtkinter --icon="./icon.ico" --name="Графіки по кадрам" staff_app.py
 
       - name: Upload compiled EXE
         uses: actions/upload-artifact@v4
